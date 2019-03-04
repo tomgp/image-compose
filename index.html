@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Juxtapose</title>
+    <style>
+    body {
+      font-family: sans-serif;
+    }
+
+    .app-layout{
+      display: grid;
+      grid-template-rows: auto 120px;
+      height: 100vh;
+    }
+
+    .grid{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 100%;
+    }
+
+    .grid.fave{
+      height:80vh;
+    }
+
+    .page{
+      height: 100%
+      vertical-align: middle;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .page img{
+      width: 100%;
+    }
+
+    .keys{
+      font-family:monospace;
+    }
+
+    hr{
+      border: 0px;
+      border-bottom: 1px solid black;
+    }
+    </style>
+  </head>
+  <body>
+    <input type="file" id="setDir" webkitdirectory directory multiple></input>
+    <div class="app-layout">
+      <div class="grid">
+        <div class="page" id="verso"><img src=""></div>
+        <div class="page" id="recto"><img src=""></div>
+      </div>
+      <div class="keys">
+        <pre>
+        Switch : [q] left      [w] both      [e] right
+        Margins: [-] decrease  [+] increase
+        Exclude: [z] left      [x] right
+        Mark favourite: [p]
+        </pre>
+      </div>
+    </div>
+    <div>
+      <h1>Faves</h1>
+      <div id="faves"></div>
+    </div>
+  </body>
+  <script>
+  // application state... 
+  let margins = 0;
+  let imagedir = 'images';
+  const fs = require('fs');
+
+  let faves = [];
+  let files = [];
+  const pair = [];
+
+  // interaction events...    
+  document.querySelector('#setDir').onchange = (evt)=>{
+    imagedir = evt.target.files[0].path;
+    initialise();
+  };
+
+  window.addEventListener('keyup', keyEvent, true);
+
+  // start everything up...
+  initialise();
+
+  // functions for doing stuff...
+  function initialise(){
+    getFiles();
+    showFaves();
+    
+    setImage('verso');
+    setImage('recto');
+  }
+
+  function getFiles(){
+    files = fs.readdirSync(`${imagedir}`)
+      .filter(d=>(
+        d.indexOf('.gif') > 0 
+        || d.indexOf('.png') >0 
+        || d.indexOf('.jpg') >0 
+        || d.indexOf('.jpeg') > 0
+      ))
+      .map(f=>`${imagedir}/${f}`);
+
+    try{
+      faves = JSON.parse(fs.readFileSync(`${imagedir}/faves.json`));
+    }catch{
+      faves = [];
+    }
+  }
+
+  function showFaves(){
+    document.querySelector('#faves').innerHTML = faves.map((d, i) =>
+     `<div class="grid fave">
+        <div class="page"><img src="${d[0]}"></div>
+        <div class="page"><img src="${d[1]}"></div>
+      </div>
+      <pre>
+        L: ${d[0]}
+        R: ${d[1]}
+      <pre>
+      <button class="remover" id="remove${i}">Remove</button>`).join('<hr>');
+
+    document.querySelectorAll('button.remover')
+      .forEach((el,i)=>{
+        el.onclick = ()=>{
+          removeFave(i)
+        }
+      });
+  }
+
+  function updateFaves(){
+    fs.writeFileSync(`${imagedir}/faves.json`, JSON.stringify(faves));
+    showFaves();
+  }
+
+  function removeFave(index){
+    faves.splice(index, 1);
+    updateFaves();
+  }
+
+  function markFave(p){
+    faves.push([p[0],p[1]]);
+    updateFaves();
+  }
+    
+  function getRandomImage(){
+    return files[Math.floor(Math.random() * files.length)];
+  }
+
+  function margin(n){
+    margins += n;
+    margins = Math.max(0, margins);
+    document.querySelectorAll('.page')
+      .forEach(d=>{
+        d.style.padding = `${margins}px ${margins}px ${margins}px ${margins}px`
+      });
+  }
+
+  function setImage(side, src){
+    if(src == undefined) {
+      src = `${getRandomImage()}`;
+    }
+    if(side=='verso'){
+      document.querySelector('#verso img').src = src;
+      document.querySelector('#verso img').alt = src;
+      pair[0] = src;
+    }else if(side=='recto'){
+      document.querySelector('#recto img').src = src;
+      document.querySelector('#recto img').alt = src;
+      pair[1] = src;
+    }
+  }
+
+  function keyEvent(a){
+    switch (a.key) {
+      case 'q':
+        setImage('verso');
+        break;
+      case 'w':
+        setImage('verso');
+        setImage('recto');
+        break;
+      case 'e':
+        setImage('recto');
+        break;
+      case '-':
+        margin(-1);
+        break;
+      case '_':
+        margin(-1);
+        break;
+      case '+':
+        margin(+1);
+        break;
+      case '=':
+        margin(+1);
+        break;
+      case 'p':
+        markFave(pair);
+        break;
+      default:
+        break;
+    }
+  }
+
+  </script>
+</html>
